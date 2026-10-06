@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { hashPassword, createToken } from "@/lib/auth";
+import { config } from "@/lib/config";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     const hash = await hashPassword(password);
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminEmail = config.ADMIN_EMAIL;
     const role = adminEmail && email === adminEmail ? "admin" : "user";
 
     const result = await sql`

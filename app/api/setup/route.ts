@@ -1,10 +1,11 @@
 import { sql } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/lib/auth";
+import { config } from "@/lib/config";
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
-  if (token !== process.env.SETUP_TOKEN) {
+  if (token !== config.SETUP_TOKEN) {
     return NextResponse.json({ error: "Invalid setup token" }, { status: 401 });
   }
 
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
     `;
 
     // ============ AUTO-CREATE ADMIN ============
-    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminEmail = config.ADMIN_EMAIL;
     let adminCreated = false;
     if (adminEmail) {
       const existing = await sql`SELECT id FROM users WHERE email = ${adminEmail}`;
