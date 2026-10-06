@@ -23,7 +23,7 @@ export default function RegisterPage() {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) return setErr(data.error || "রেজিস্ট্রেশন ব্যর্থ");
-    router.push(data.user.role === "admin" ? "/admin" : "/dashboard");
+    router.push("/dashboard");
     router.refresh();
   }
 
