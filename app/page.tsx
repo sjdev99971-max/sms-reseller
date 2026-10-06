@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NavClient from "./nav-client";
 
 export default function Home() {
   return (
@@ -14,9 +15,7 @@ export default function Home() {
           <a href="#docs">Docs</a>
           <a href="#contact">Contact</a>
         </div>
-        <Link href="/dashboard" className="btn btn-primary">
-          Dashboard →
-        </Link>
+        <NavClient />
       </nav>
 
       <section className="hero">
