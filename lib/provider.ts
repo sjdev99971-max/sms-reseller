@@ -1,5 +1,6 @@
-const PROVIDER_URL = process.env.PROVIDER_API_URL || "https://devbd.my.id";
-const PROVIDER_KEY = process.env.PROVIDER_API_KEY || "";
+import { config } from "./config";
+const PROVIDER_URL = config.PROVIDER_API_URL;
+const PROVIDER_KEY = config.PROVIDER_API_KEY;
 
 export type BalanceInfo = {
   limit: number;

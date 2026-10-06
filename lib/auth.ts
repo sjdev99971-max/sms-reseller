@@ -1,10 +1,9 @@
+import { config } from "./config";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-change-this-in-production-32chars"
-);
+const SECRET = new TextEncoder().encode(config.JWT_SECRET);
 
 export type Session = { id: number; email: string; role: string };
 
