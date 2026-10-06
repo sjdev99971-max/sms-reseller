@@ -1,61 +1,76 @@
+import { getSession } from "@/lib/auth";
+import { sql } from "@/lib/db";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
-export default function Dashboard() {
-  const stats = [
-    { label: "মোট SMS", value: "12,847", change: "+18%", up: true },
-    { label: "ডেলিভারড", value: "12,591", change: "+18%", up: true },
-    { label: "ফেইলড", value: "256", change: "-4%", up: false },
-    { label: "ব্যালেন্স", value: "৳ 24,580", change: "+৳৩,২০০", up: true },
-  ];
+export default async function Dashboard() {
+  const session = await getSession();
+  if (!session) redirect("/login");
 
-  const logs = [
-    { to: "+8801712345678", status: "success", cost: "৳0.35", time: "১ মিনিট আগে" },
-    { to: "+8801812345678", status: "success", cost: "৳0.35", time: "৩ মিনিট আগে" },
-    { to: "+8801912345678", status: "pending", cost: "৳0.35", time: "৫ মিনিট আগে" },
-    { to: "+8801612345678", status: "failed", cost: "৳0", time: "৮ মিনিট আগে" },
-    { to: "+8801512345678", status: "success", cost: "৳0.35", time: "১০ মিনিট আগে" },
+  const userRows = await sql`
+    SELECT id, email, name, role, balance, created_at
+    FROM users WHERE id = ${session.id}
+  `;
+  if (userRows.length === 0) redirect("/login");
+  const user = userRows[0];
+
+  const statsRows = await sql`
+    SELECT
+      COUNT(*)::int as total,
+      COUNT(*) FILTER (WHERE status = 'delivered')::int as delivered,
+      COUNT(*) FILTER (WHERE status = 'failed')::int as failed,
+      COALESCE(SUM(cost), 0)::float as spent
+    FROM sms_logs WHERE user_id = ${session.id}
+  `;
+  const stats = statsRows[0];
+
+  const logs = await sql`
+    SELECT id, to_number, status, cost, created_at
+    FROM sms_logs WHERE user_id = ${session.id}
+    ORDER BY created_at DESC LIMIT 10
+  `;
+
+  const cards = [
+    { label: "মোট SMS", value: stats.total.toString(), up: true },
+    { label: "ডেলিভারড", value: stats.delivered.toString(), up: true },
+    { label: "ফেইলড", value: stats.failed.toString(), up: false },
+    { label: "ব্যালেন্স", value: "৳ " + Number(user.balance).toFixed(2), up: true },
   ];
 
   return (
-    <div className="dash">
-      <aside className="sidebar">
-        <div className="logo">
-          <div className="logo-dot" />
-          <span>SMS Reseller</span>
+    <>
+      <div className="main-header">
+        <div>
+          <h1>স্বাগতম, {user.name || user.email.split("@")[0]} 👋</h1>
+          <p>{user.email} · {user.role === "admin" ? "অ্যাডমিন" : "ইউজার"}</p>
         </div>
-        <Link href="/dashboard" className="side-link active">📊 ড্যাশবোর্ড</Link>
-        <Link href="/dashboard/send" className="side-link">✉️ SMS পাঠান</Link>
-        <Link href="/dashboard/logs" className="side-link">📜 লগ</Link>
-        <Link href="/dashboard/api" className="side-link">🔑 API Keys</Link>
-        <Link href="/dashboard/balance" className="side-link">💳 ব্যালেন্স</Link>
-        <Link href="/dashboard/settings" className="side-link">⚙️ সেটিংস</Link>
-      </aside>
+        <Link href="/dashboard/send" className="btn btn-primary">
+          নতুন SMS পাঠান
+        </Link>
+      </div>
 
-      <main className="main">
-        <div className="main-header">
-          <div>
-            <h1>স্বাগতম 👋</h1>
-            <p>আপনার SMS গেটওয়ে স্ট্যাটাস ওভারভিউ</p>
-          </div>
-          <Link href="/dashboard/send" className="btn btn-primary">
-            নতুন SMS পাঠান
-          </Link>
-        </div>
-
-        <div className="grid-stats">
-          {stats.map((s) => (
-            <div key={s.label} className="card">
-              <div className="card-label">{s.label}</div>
-              <div className="card-value">{s.value}</div>
-              <div className={`card-change ${s.up ? "up" : "down"}`}>
-                {s.change} আগের সপ্তাহ থেকে
-              </div>
+      <div className="grid-stats">
+        {cards.map((c) => (
+          <div key={c.label} className="card">
+            <div className="card-label">{c.label}</div>
+            <div className="card-value">{c.value}</div>
+            <div className={`card-change ${c.up ? "up" : "down"}`}>
+              সর্বমোট
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+      </div>
 
-        <div className="table-card">
-          <h2>সাম্প্রতিক SMS লগ</h2>
+      <div className="table-card">
+        <h2>সাম্প্রতিক SMS</h2>
+        {logs.length === 0 ? (
+          <p style={{ color: "var(--muted)", padding: "20px 0" }}>
+            এখনো কোনো SMS পাঠানো হয়নি।{" "}
+            <Link href="/dashboard/send" style={{ color: "#a5b4fc" }}>
+              প্রথম SMS পাঠান →
+            </Link>
+          </p>
+        ) : (
           <table>
             <thead>
               <tr>
@@ -66,22 +81,24 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log, i) => (
-                <tr key={i}>
-                  <td>{log.to}</td>
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td>{log.to_number}</td>
                   <td>
-                    <span className={`pill ${log.status}`}>
-                      {log.status === "success" ? "ডেলিভারড" : log.status === "pending" ? "পেন্ডিং" : "ফেইলড"}
+                    <span className={`pill ${log.status === "delivered" ? "success" : log.status === "failed" ? "failed" : "pending"}`}>
+                      {log.status === "delivered" ? "ডেলিভারড" : log.status === "failed" ? "ফেইলড" : "পেন্ডিং"}
                     </span>
                   </td>
-                  <td>{log.cost}</td>
-                  <td style={{ color: "var(--muted)" }}>{log.time}</td>
+                  <td>৳{Number(log.cost).toFixed(2)}</td>
+                  <td style={{ color: "var(--muted)" }}>
+                    {new Date(log.created_at).toLocaleString("bn-BD")}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </main>
-    </div>
+        )}
+      </div>
+    </>
   );
 }
