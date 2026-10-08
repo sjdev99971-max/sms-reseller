@@ -1,6 +1,4 @@
 import { config } from "./config";
-const PROVIDER_URL = config.PROVIDER_API_URL;
-const PROVIDER_KEY = config.PROVIDER_API_KEY;
 
 export type BalanceInfo = {
   limit: number;
@@ -15,15 +13,12 @@ export type SendResult = {
 };
 
 export async function checkBalance(): Promise<BalanceInfo> {
-  const url = `${PROVIDER_URL}/Balance.php?key=${encodeURIComponent(PROVIDER_KEY)}`;
+  const url = `${config.PROVIDER_API_URL}/Balance.php?key=${encodeURIComponent(config.PROVIDER_API_KEY)}`;
   const res = await fetch(url, { method: "GET", cache: "no-store" });
 
-  if (!res.ok) {
-    throw new Error(`Provider error: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`Provider error: ${res.status}`);
 
   const data = await res.json();
-
   return {
     limit: Number(data.Limit) || 0,
     used: Number(data.Used) || 0,
@@ -33,15 +28,23 @@ export async function checkBalance(): Promise<BalanceInfo> {
 
 export async function sendSms(to: string, msg: string): Promise<SendResult> {
   const url =
-    `${PROVIDER_URL}/sms.php` +
-    `?key=${encodeURIComponent(PROVIDER_KEY)}` +
+    `${config.PROVIDER_API_URL}/sms.php` +
+    `?key=${encodeURIComponent(config.PROVIDER_API_KEY)}` +
     `&number=${encodeURIComponent(to)}` +
     `&msg=${encodeURIComponent(msg)}`;
 
   try {
     const res = await fetch(url, { method: "GET", cache: "no-store" });
     const text = await res.text();
-    const ok = res.ok && !/error|invalid|fail/i.test(text.slice(0, 200));
+
+    let ok = false;
+    try {
+      const data = JSON.parse(text);
+      ok = data.success === true || /success/i.test(data.response || "");
+    } catch {
+      // JSON না হলে fallback regex
+      ok = res.ok && !/error|invalid|fail/i.test(text.slice(0, 200));
+    }
 
     return {
       ok,
